@@ -11,7 +11,7 @@ flags = tf.app.flags
 
 flags.DEFINE_integer("word_dim", 60, "word embeding dimension [60]")
 flags.DEFINE_integer("hidden_num", 50, "number of hidden states [50]")
-flags.DEFINE_integer("batch_size", 128, "batch size to use during training [128]")
+flags.DEFINE_integer("batch_size", 10, "batch size to use during training [120]")
 flags.DEFINE_integer("num_epochs", 5, "number of epoch to use during training [5]")
 flags.DEFINE_string("win_size", 5, "the order of model [5]")
 flags.DEFINE_float("grad_clip", 50, "clip gradients to this norm [50]")

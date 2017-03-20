@@ -40,9 +40,9 @@ class NNLM(object):
 
         input_embeds = tf.nn.embedding_lookup(self.C, self.input)
         input_embeds = tf.reshape(input_embeds, [-1, self.win_size * self.word_dim])
-        b_tmp = tf.stack([tf.shape(self.input)[0],1])
+        b_tmp = tf.stack([tf.shape(self.input)[0],1]) #what is the usage of this sentence?
         b = tf.ones(b_tmp)
-        input_embeds_add = tf.concat([input_embeds, b],1)
+        input_embeds_add = tf.concat([input_embeds, b],1) #add constent column. We need to verify the dimentions of array.
 
         hidden_out = tf.tanh(tf.matmul(input_embeds_add, self.H))
         hidden_out_add = tf.concat([hidden_out, tf.ones(tf.stack([tf.shape(self.input)[0], 1]))], 1)
@@ -54,7 +54,7 @@ class NNLM(object):
 
         #loss function & optimization algorithm
         self.loss = -tf.reduce_mean(tf.reduce_sum(tf.log(output) * self.targets, 1))
-        self.optim = tf.train.AdagradOptimizer(0.1).minimize(self.loss) # what kind of the optimizer it is?
+        self.optim = tf.train.AdagradOptimizer(0.1).minimize(self.loss)
 
         tf.global_variables_initializer().run()
 
@@ -72,16 +72,19 @@ class NNLM(object):
         m = self.win_size;
         clean_data = np.concatenate((np.zeros(self.win_size, dtype=np.int32), data)) #padding head
         clean_data = np.concatenate((clean_data, np.zeros(self.batch_size, dtype=np.int32))) #padding tail
-        print("original data head=%s" % (data[0:10]))
-        print("clean_data head=%s" % (clean_data[0:10]))
         for idx in xrange(N): #interations
             if self.show: bar.next()
             target.fill(0)
+#            if idx == 0:
+#                print self.nwords
             for b in xrange(self.batch_size):
-                target[b][clean_data[m]] = 1
+                target[b][clean_data[m]] = 1 #one-batch, one example
+                x[b] = clean_data[m-self.win_size : m] # we need padding here!
                 m += 1
-
-                x[b] = data[m-self.win_size : m] # we need padding here!
+#                if idx == 0:
+#                    print "target=", target[b]
+#                    print "input=", x[b]
+#                    print 
 
             _, loss = self.sess.run([self.optim, self.loss], feed_dict={
                                                         self.input: x,
@@ -89,7 +92,7 @@ class NNLM(object):
             cost += np.sum(loss) 
 
         if self.show: bar.finish()
-        return cost / N /self.batch_size
+        return cost / N /self.batch_size #has problem here?
 
     def run(self, train_data, test_data):
         if not self.is_test:
