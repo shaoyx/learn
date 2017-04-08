@@ -24,6 +24,7 @@ class NNLM(object):
         self.sess = sess
         self.is_test = config.is_test
         self.show = config.show
+        self.logdir = config.logdir
 
     def build_model(self):
         #embeddings
@@ -65,7 +66,8 @@ class NNLM(object):
 
     def train(self, data):
         merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter("/tmp/tensorflow/nnlm/logs/train", tf.Session().graph)
+        train_writer = tf.summary.FileWriter(self.logdir + "/train", self.sess.graph)
+
         N = int(math.ceil(len(data) / self.batch_size))
         cost = 0
 
@@ -82,16 +84,10 @@ class NNLM(object):
         for idx in xrange(N): #interations
             if self.show: bar.next()
             target.fill(0)
-#            if idx == 0:
-#                print self.nwords
             for b in xrange(self.batch_size):
                 target[b][clean_data[m]] = 1 #one-batch, one example
                 x[b] = clean_data[m-self.win_size : m] # we need padding here!
                 m += 1
-#                if idx == 0:
-#                    print "target=", target[b]
-#                    print "input=", x[b]
-#                    print 
 
             summary, _, loss = self.sess.run([merged, self.optim, self.loss], feed_dict={
                                                         self.input: x,
@@ -101,14 +97,51 @@ class NNLM(object):
 
         train_writer.close()
         if self.show: bar.finish()
-        return cost / N  #/self.batch_size #has problem here?
+        return cost / N 
+
+    def test(self, data):
+        merged = tf.summary.merge_all()
+        test_writer = tf.summary.FileWriter(self.logdir + "/test", self.sess.graph)
+
+        N = int(math.ceil(len(data) / self.batch_size))
+        cost = 0
+
+        x = np.ndarray([self.batch_size, self.win_size], dtype=np.float32)
+        target = np.zeros([self.batch_size, self.nwords]) # one-hot-encoded
+
+        if self.show:
+            from utils import ProgressBar
+            bar = ProgressBar('Train', max=N)
+
+        m = self.win_size;
+        clean_data = np.concatenate((np.zeros(self.win_size, dtype=np.int32), data)) #padding head
+        clean_data = np.concatenate((clean_data, np.zeros(self.batch_size, dtype=np.int32))) #padding tail
+        for idx in xrange(N): #interations
+            if self.show: bar.next()
+            target.fill(0)
+            for b in xrange(self.batch_size):
+                target[b][clean_data[m]] = 1 #one-batch, one example
+                x[b] = clean_data[m-self.win_size : m] # we need padding here!
+                m += 1
+
+            summary, loss = self.sess.run([merged, self.loss], feed_dict={
+                                                        self.input: x,
+                                                        self.targets: target})
+            cost += np.sum(loss)
+            test_writer.add_summary(summary, idx)
+
+        test_writer.close()
+        if self.show: bar.finish()
+        return cost / N 
 
     def run(self, train_data, test_data):
         if not self.is_test:
             for e in range(self.num_epochs):
                 train_loss = np.sum(self.train(train_data))
+                test_loss = np.sum(self.test(test_data, label='Validation'))
                 state = {
-                    "perplexity":math.exp(train_loss),
+                    "Train perplexity":math.exp(train_loss),
+                    "Validation perplexity":math.exp(test_loss),
                     "epoch":e
                 }
                 print state

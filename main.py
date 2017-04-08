@@ -19,6 +19,7 @@ flags.DEFINE_string("data_dir", "data", "data directory [data]")
 flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
+flags.DEFINE_string("logdir", ".", "log directory")
 
 FLAGS = flags.FLAGS
 
