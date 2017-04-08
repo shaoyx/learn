@@ -101,7 +101,7 @@ class NNLM(object):
 
         train_writer.close()
         if self.show: bar.finish()
-        return cost / N /self.batch_size #has problem here?
+        return cost / N  #/self.batch_size #has problem here?
 
     def run(self, train_data, test_data):
         if not self.is_test:
