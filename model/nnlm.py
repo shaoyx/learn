@@ -12,10 +12,10 @@ class NNLM(object):
         self.batch_size = config.batch_size
         self.num_epochs = config.num_epochs
 
-        self.nwords = config.nwords
-        self.win_size = config.win_size
-        self.hidden_num = config.hidden_num
-        self.word_dim = config.word_dim
+        self.nwords = config.nwords #vacbulary size
+        self.win_size = config.win_size #context size
+        self.hidden_num = config.hidden_num #hidden layer size
+        self.word_dim = config.word_dim #vector dimension size
         self.grad_clip = config.grad_clip
 
         self.input = tf.placeholder(tf.int32, [self.batch_size, self.win_size])
@@ -28,7 +28,7 @@ class NNLM(object):
     def build_model(self):
         #embeddings
         self.C = tf.Variable(tf.random_uniform([self.nwords, self.word_dim], -1.0, 1.0)) # nwords * word_dim
-        self.C = tf.nn.l2_normalize(self.C, 1)
+        self.C = tf.nn.l2_normalize(self.C, 1) #do we need normalize?
 
         #embed2hidden 
         self.H = tf.Variable(tf.truncated_normal([self.win_size * self.word_dim + 1, self.hidden_num], stddev=1.0/math.sqrt(self.hidden_num))) #h * (word_dim * win_size), encoding d matrix with adding 1?
@@ -38,7 +38,7 @@ class NNLM(object):
         self.U = tf.Variable(tf.truncated_normal([self.hidden_num + 1, self.nwords], stddev=1.0/math.sqrt(self.hidden_num))) # why add 1?
 #        self.b = tf.Variable() #encoding in self.U? 
 
-        input_embeds = tf.nn.embedding_lookup(self.C, self.input)
+        input_embeds = tf.nn.embedding_lookup(self.C, self.input) #how does the embedding work?
         input_embeds = tf.reshape(input_embeds, [-1, self.win_size * self.word_dim])
         b_tmp = tf.stack([tf.shape(self.input)[0],1]) #what is the usage of this sentence?
         b = tf.ones(b_tmp)
@@ -47,8 +47,12 @@ class NNLM(object):
         hidden_out = tf.tanh(tf.matmul(input_embeds_add, self.H))
         hidden_out_add = tf.concat([hidden_out, tf.ones(tf.stack([tf.shape(self.input)[0], 1]))], 1)
 
-        output = tf.matmul(hidden_out_add, self.U) + tf.matmul(input_embeds, self.W)
+        tf.summary.histogram("hidden_out", hidden_out_add)
+
+        output = tf.matmul(hidden_out_add, self.U) + tf.matmul(input_embeds, self.W) # miss biase b
         output = tf.clip_by_value(output, 0.0, self.grad_clip)
+
+        tf.summary.histogram("output", output)
 
         output = tf.nn.softmax(output)
 
@@ -56,9 +60,12 @@ class NNLM(object):
         self.loss = -tf.reduce_mean(tf.reduce_sum(tf.log(output) * self.targets, 1))
         self.optim = tf.train.AdagradOptimizer(0.1).minimize(self.loss)
 
+        tf.summary.scalar('loss', self.loss)
         tf.global_variables_initializer().run()
 
     def train(self, data):
+        merged = tf.summary.merge_all()
+        train_writer = tf.summary.FileWriter("/tmp/tensorflow/nnlm/logs/train", tf.Session().graph)
         N = int(math.ceil(len(data) / self.batch_size))
         cost = 0
 
@@ -86,11 +93,13 @@ class NNLM(object):
 #                    print "input=", x[b]
 #                    print 
 
-            _, loss = self.sess.run([self.optim, self.loss], feed_dict={
+            summary, _, loss = self.sess.run([merged, self.optim, self.loss], feed_dict={
                                                         self.input: x,
                                                         self.targets: target})
-            cost += np.sum(loss) 
+            cost += np.sum(loss)
+            train_writer.add_summary(summary, idx)
 
+        train_writer.close()
         if self.show: bar.finish()
         return cost / N /self.batch_size #has problem here?
 
