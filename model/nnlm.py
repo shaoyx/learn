@@ -99,7 +99,7 @@ class NNLM(object):
         if self.show: bar.finish()
         return cost / N 
 
-    def test(self, data):
+    def test(self, data, label='Test'):
         merged = tf.summary.merge_all()
         test_writer = tf.summary.FileWriter(self.logdir + "/test", self.sess.graph)
 
@@ -111,7 +111,7 @@ class NNLM(object):
 
         if self.show:
             from utils import ProgressBar
-            bar = ProgressBar('Train', max=N)
+            bar = ProgressBar(label, max=N)
 
         m = self.win_size;
         clean_data = np.concatenate((np.zeros(self.win_size, dtype=np.int32), data)) #padding head
